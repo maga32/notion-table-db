@@ -22,6 +22,6 @@ fetch('http://localhost:10712/util/notion?url=' + encodeURIComponent(notionUrl))
   .then(response => response.json());
 ```
 
-Returns an array of rows with `id` and column names as keys. Property values are flattened to text; missing values are empty strings.
+Returns an array of rows with `id` and column names as keys. Rows without properties and missing fields are omitted. Numbers and checkboxes retain their types. Files and multi-select values are arrays; people and relations are ID arrays. Dates return the start date. Text, titles, selects, emails, phone numbers, and URLs are strings. Unsupported types return `"Not supported"`.
 
 Uses Notion's unofficial API, which may change.

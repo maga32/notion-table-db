@@ -39,10 +39,44 @@ async function notionTable(address) {
         rows = result.result.reducerResults.collection_group_results;
         limit *= 2;
     } while (rows.hasMore);
-    return rows.blockIds.map(id => {
+    return rows.blockIds.filter(id => value(result.recordMap.block[id]).properties).map(id => {
         const properties = value(result.recordMap.block[id]).properties;
-        const fields = Object.entries(collection.schema).map(([key, field]) =>
-            [field.name, (properties[key] || []).map(part => part[0]).join('')]);
+        const fields = Object.entries(collection.schema).filter(([key]) => properties[key]).map(([key, field]) => {
+            const parts = properties[key];
+            switch (field.type) {
+                case 'number':
+                    return [field.name, Number(parts[0][0])];
+                case 'checkbox':
+                    return [field.name, parts[0][0] === 'Yes'];
+                case 'person':
+                    return [field.name, parts.filter(part => part.length > 1).map(part => part[1][0][1])];
+                case 'relation':
+                    return [field.name, parts.filter(part => part[0] === '‣').map(part => part[1][0][1])];
+                case 'select':
+                case 'email':
+                case 'phone_number':
+                case 'url':
+                    return [field.name, parts[0][0]];
+                case 'date':
+                    return [field.name, parts[0]?.[1]?.find(item => item[0] === 'd')?.[1]?.start_date || ''];
+                case 'multi_select':
+                    return [field.name, parts.length ? parts[0][0].split(',') : []];
+                case 'text':
+                case 'title':
+                    return [field.name, parts.map(part => part[0]).join('')];
+                case 'file':
+                    return [field.name, parts.filter(part => part[1]).map(([name, links]) => {
+                        const rawUrl = links[0][1];
+                        const url = new URL(rawUrl.startsWith('/image') ? rawUrl : '/image/' + encodeURIComponent(rawUrl), 'https://www.notion.so');
+                        url.searchParams.set('table', 'block');
+                        url.searchParams.set('id', id);
+                        url.searchParams.set('cache', 'v2');
+                        return {name, url:url.href, rawUrl};
+                    })];
+                default:
+                    return [field.name, 'Not supported'];
+            }
+        });
         return {id, ...Object.fromEntries(fields)};
     });
 }
